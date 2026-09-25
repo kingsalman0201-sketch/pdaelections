@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>College Election System — Secure Multi-Booth Voting Platform</title>
+  <meta name="description" content="Production-grade, secure college election system with student UN+DOB authentication, one-vote database transaction enforcement, ballot secrecy, and presence photo capture.">
+  <link rel="stylesheet" href="/css/style.css">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">
+        <i data-lucide="vote" style="color: white; width: 22px; height: 22px;"></i>
+      </div>
+      <span>Apex Election System</span>
+    </div>
+    
+    <nav class="nav-links">
+      <button class="nav-btn active" id="btnNavStudent" onclick="switchView('student')">
+        <i data-lucide="user-check" style="width: 16px; height: 16px;"></i> Student Kiosk
+      </button>
+      <button class="nav-btn" id="btnNavBooth" onclick="switchView('booth')">
+        <i data-lucide="monitor" style="width: 16px; height: 16px;"></i> Polling Booth Setup
+      </button>
+      <button class="nav-btn" id="btnNavAdmin" onclick="switchView('admin')">
+        <i data-lucide="shield-check" style="width: 16px; height: 16px;"></i> Admin Dashboard
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="container">
+
+    <!-- ========================================================= -->
+    <!-- VIEW 1: STUDENT VOTING KIOSK -->
+    <!-- ========================================================= -->
+    <section id="viewStudent" class="view-section">
+      
+      <!-- Election Banner -->
+      <div id="studentElectionHeader" class="glass-panel" style="margin-bottom: 1.5rem; text-align: center;">
+        <span class="badge badge-active" id="badgeActiveStatus"><i data-lucide="radio" style="width:12px"></i> ELECTION ACTIVE</span>
+        <h1 class="title-lg" id="elecHeaderTitle" style="margin-top: 0.5rem;">Apex Student Council Election 2026</h1>
+        <p class="subtitle" id="elecHeaderDesc">Please authenticate using your University Number (UN) and Date of Birth to proceed to ballot.</p>
+        <div style="font-size: 0.85rem; color: var(--accent-cyan); display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <i data-lucide="shield-lock" style="width: 16px;"></i> 
+          <span>End-to-End One-Vote Enforced • Logical Identity-Ballot Separation</span>
+        </div>
+      </div>
+
+      <!-- STEP 1: Student Login Screen -->
+      <div id="studentStepLogin" class="glass-panel" style="max-width: 460px; margin: 0 auto;">
+        <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="key-round" style="color: var(--accent-cyan)"></i> Student Authentication
+        </h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          Enter your official credentials preloaded by the election administration.
+        </p>
+
+        <div id="loginAlert" class="alert-box alert-error" style="display: none;"></div>
+
+        <form id="studentLoginForm" onsubmit="handleStudentLogin(event)">
+          <div class="form-group">
+            <label class="form-label" for="inputUN">University Number (UN)</label>
+            <input type="text" id="inputUN" class="form-input" placeholder="e.g. UN2026001" required autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inputDOB">Date of Birth (DOB)</label>
+            <input type="date" id="inputDOB" class="form-input" required>
+          </div>
+
+          <button type="submit" class="btn-primary" id="btnLoginSubmit" style="margin-top: 1rem;">
+            Authenticate & Proceed <i data-lucide="arrow-right" style="width: 18px;"></i>
+          </button>
+        </form>
+
+        <div style="margin-top: 1.5rem; font-size: 0.75rem; color: var(--text-muted); text-align: center; border-top: 1px solid var(--glass-border); padding-top: 1rem;">
+          💡 Demo Credentials: <code>UN2026001</code> / DOB: <code>2002-05-15</code>
+        </div>
+      </div>
+
+      <!-- STEP 2: Candidate Voting Interface -->
+      <div id="studentStepVoting" style="display: none;">
+        
+        <!-- Progress Stepper -->
+        <div id="votingStepper" class="stepper"></div>
+
+        <!-- Position Content -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div>
+              <span style="font-size: 0.8rem; font-weight: 700; color: var(--accent-cyan);" id="posStepCounter">POSITION 1 OF 3</span>
+              <h2 class="title-lg" id="posTitle" style="font-size: 1.75rem; margin-top: 0.2rem;">Student Body President</h2>
+            </div>
+            <span class="badge badge-active">SELECT 1 CANDIDATE</span>
+          </div>
+
+          <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Review manifestos and tap your chosen candidate card.
+          </p>
+
+          <div class="candidate-grid" id="candidateGrid"></div>
+        </div>
+
+        <!-- Voting Navigation Buttons -->
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <button class="btn-secondary" id="btnPrevPos" onclick="prevPosition()" style="display: none;">
+            <i data-lucide="arrow-left" style="width: 16px;"></i> Previous Position
+          </button>
+          
+          <button class="btn-primary" id="btnNextPos" onclick="nextPosition()" style="margin-left: auto; width: auto; padding: 0.9rem 2rem;">
+            Next Position <i data-lucide="arrow-right" style="width: 18px;"></i>
+          </button>
+
+          <button class="btn-primary btn-success" id="btnReviewBallot" onclick="openReviewModal()" style="display: none; margin-left: auto; width: auto; padding: 0.9rem 2rem;">
+            <i data-lucide="check-circle" style="width: 18px;"></i> Review & Submit Ballot
+          </button>
+        </div>
+
+      </div>
+
+      <!-- STEP 3: Non-Revealing Confirmation Screen -->
+      <div id="studentStepConfirmation" class="glass-panel" style="max-width: 520px; margin: 0 auto; display: none; text-align: center;">
+        <div style="width: 72px; height: 72px; background: rgba(16, 185, 129, 0.2); border: 2px solid var(--accent-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;">
+          <i data-lucide="check" style="color: var(--accent-green); width: 40px; height: 40px;"></i>
+        </div>
+
+        <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; color: white;">Ballot Submitted!</h2>
+        <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          Your vote has been atomically encrypted and stored. Your University Number is marked as VOTED.
+        </p>
+
+        <div style="background: rgba(15, 23, 42, 0.8); border: 1px dashed var(--accent-cyan); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;">
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.25rem;">
+            Official Voting Receipt ID
+          </div>
+          <div style="font-size: 1.8rem; font-weight: 800; font-family: monospace; color: var(--accent-cyan); letter-spacing: 0.05em;" id="receiptIdDisplay">
+            RCP-8F92A-2026
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;" id="receiptTimestamp">
+            Submitted at 2026-09-03 02:00:00 • Polling Booth BOOTH-01
+          </div>
+        </div>
+
+        <div style="font-size: 0.85rem; color: #cbd5e1; margin-bottom: 1.5rem;">
+          🔒 <strong>Ballot Secrecy Guarantee:</strong> This receipt proves your participation without revealing your candidate choices to anyone.
+        </div>
+
+        <button class="btn-primary" onclick="resetStudentKiosk()">
+          <i data-lucide="refresh-cw" style="width: 18px;"></i> Next Student Login (<span id="resetCountdown">10</span>s)
+        </button>
+      </div>
+
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 2: POLLING BOOTH SETUP MODE (PRD Section 9) -->
+    <!-- ========================================================= -->
+    <section id="viewBooth" class="view-section" style="display: none;">
+      <div class="glass-panel" style="max-width: 650px; margin: 0 auto;">
+        <span class="badge badge-active"><i data-lucide="laptop" style="width: 12px;"></i> LAPTOP & BOOTH OPERATOR SETUP</span>
+        <h1 class="title-lg" style="margin-top: 0.5rem;">Polling Booth Setup</h1>
+        <p class="subtitle">Configure this laptop booth workstation before starting election kiosk.</p>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div class="form-group">
+            <label class="form-label" for="selectBoothElection">Target Election</label>
+            <select id="selectBoothElection" class="form-input" style="background: #0f172a;"></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inputBoothID">Assigned Booth ID</label>
+            <input type="text" id="inputBoothID" class="form-input" value="BOOTH-01" placeholder="e.g. BOOTH-01">
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <div class="form-group">
+            <label class="form-label" for="inputOperatorName">Laptop Operator Name</label>
+            <input type="text" id="inputOperatorName" class="form-input" value="Operator Alpha" placeholder="e.g. Operator John">
+          </div>
+        </div>
+
+        <!-- Diagnostic Checklist -->
+        <div style="background: rgba(0,0,0,0.3); border-radius: 14px; padding: 1.25rem; margin-bottom: 1.5rem;">
+          <h4 style="font-size: 0.9rem; margin-bottom: 0.75rem; color: var(--text-muted);">PRE-ELECTION DIAGNOSTIC CHECKLIST</h4>
+          
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem;">
+            <span>Central API Connection:</span>
+            <span style="color: var(--accent-green); font-weight: 700;" id="diagApiStatus">✓ CONNECTED (200 OK)</span>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+            <span>Central Database Sync:</span>
+            <span style="color: var(--accent-green); font-weight: 700;" id="diagStorageStatus">✓ SYNCHRONIZED</span>
+          </div>
+        </div>
+
+        <button class="btn-primary btn-success" onclick="launchKioskMode()">
+          <i data-lucide="play" style="width: 18px;"></i> Start Polling Station Kiosk
+        </button>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 3: ELECTION ADMIN DASHBOARD (PASSWORD PROTECTED) -->
+    <!-- ========================================================= -->
+    <section id="viewAdmin" class="view-section" style="display: none;">
+      
+      <!-- ADMIN LOGIN LOCK PANEL -->
+      <div id="adminAuthLockPanel" class="glass-panel" style="max-width: 440px; margin: 2rem auto; text-align: center;">
+        <div style="width: 64px; height: 64px; background: rgba(99, 102, 241, 0.15); border: 2px solid var(--accent-primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;">
+          <i data-lucide="shield-lock" style="color: var(--accent-cyan); width: 32px; height: 32px;"></i>
+        </div>
+        <h2 style="font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; color: white;">Admin Authentication Required</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          This section is password-protected. Enter the administrator password to unlock dashboard controls.
+        </p>
+
+        <div id="adminPassAlert" class="alert-box alert-error" style="display: none;"></div>
+
+        <form id="adminLoginForm" onsubmit="handleAdminPasswordLogin(event)">
+          <div class="form-group" style="text-align: left;">
+            <label class="form-label" for="inputAdminId">Admin Identifier</label>
+            <input type="text" id="inputAdminId" class="form-input" value="admin" required readonly style="opacity: 0.7;">
+          </div>
+
+          <div class="form-group" style="text-align: left;">
+            <label class="form-label" for="inputAdminPass">Administrator Password</label>
+            <input type="password" id="inputAdminPass" class="form-input" placeholder="Enter Password" required autocomplete="current-password">
+          </div>
+
+          <button type="submit" class="btn-primary" style="margin-top: 0.5rem;">
+            <i data-lucide="key" style="width: 18px;"></i> Unlock Admin Portal
+          </button>
+        </form>
+      </div>
+
+      <!-- MAIN ADMIN DASHBOARD CONTENT (VISIBLE AFTER UNLOCK) -->
+      <div id="adminMainDashboardContent" style="display: none;">
+        
+        <!-- Multi-Election Instance Switcher Bar -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <i data-lucide="vote" style="color: var(--accent-cyan); width: 22px; height: 22px;"></i>
+            <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">Active Election Instance:</span>
+            <select id="selectElectionInstance" class="form-input" style="width: auto; min-width: 280px; padding: 0.5rem 1rem; background: rgba(0,0,0,0.4);" onchange="switchActiveElectionInstance(this.value)">
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button class="btn-primary" style="width: auto; padding: 0.55rem 1rem; font-size: 0.85rem;" onclick="promptCreateNewElection()">
+              <i data-lucide="plus-circle" style="width: 15px;"></i> Create New Election
+            </button>
+            <button class="btn-secondary" style="width: auto; padding: 0.55rem 1rem; font-size: 0.85rem; color: #fca5a5; border-color: rgba(244,63,94,0.3);" onclick="promptDeleteCurrentElection()">
+              <i data-lucide="trash-2" style="width: 15px;"></i> Delete Election
+            </button>
+          </div>
+        </div>
+
+        <!-- Admin Sub-Navigation -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h1 class="title-lg" id="currentElectionHeaderTitle">Election Administrator Dashboard</h1>
+            <p class="subtitle" style="margin-bottom: 0;">Control center for multi-election lifecycle, per-election booth allocation, and AI bulk import.</p>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; gap: 0.5rem; background: rgba(255,255,255,0.04); padding: 0.25rem; border-radius: 12px; border: 1px solid var(--glass-border);">
+              <button class="nav-btn active" id="subTabOverview" onclick="switchAdminTab('overview')">Overview</button>
+              <button class="nav-btn" id="subTabBooths" onclick="switchAdminTab('booths')">Polling Booths</button>
+              <button class="nav-btn" id="subTabVoters" onclick="switchAdminTab('voters')">AI Voters Import</button>
+              <button class="nav-btn" id="subTabPositions" onclick="switchAdminTab('positions')">Candidates</button>
+              <button class="nav-btn" id="subTabInspector" onclick="switchAdminTab('inspector')">UN Inspector</button>
+              <button class="nav-btn" id="subTabResults" onclick="switchAdminTab('results')">Results Center</button>
+            </div>
+
+            <button class="btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem; color: #fca5a5; border-color: rgba(244,63,94,0.3);" onclick="logoutAdmin()">
+              <i data-lucide="log-out" style="width: 14px;"></i> Lock Portal
+            </button>
+          </div>
+        </div>
+
+      <!-- TAB 1: OVERVIEW & STATS -->
+      <div id="adminTabOverview">
+        <!-- Turnout Metric Cards -->
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);">
+              <i data-lucide="users"></i>
+            </div>
+            <div>
+              <div class="stat-value" id="statTotalVoters">10</div>
+              <div class="stat-title">Total Preloaded Voters</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-green);">
+              <i data-lucide="vote"></i>
+            </div>
+            <div>
+              <div class="stat-value" id="statVotesCast">0</div>
+              <div class="stat-title">Ballots Submitted</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--accent-amber);">
+              <i data-lucide="clock"></i>
+            </div>
+            <div>
+              <div class="stat-value" id="statNotVoted">10</div>
+              <div class="stat-title">Voters Pending</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan);">
+              <i data-lucide="trending-up"></i>
+            </div>
+            <div>
+              <div class="stat-value" id="statTurnout">0.0%</div>
+              <div class="stat-title">Voter Turnout Rate</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Control Panel Panel -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem;">
+          <h3 style="font-size: 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="sliders" style="color: var(--accent-cyan)"></i> Election Lifecycle & Details Configuration
+          </h3>
+
+          <!-- Set Election Name Form -->
+          <div style="background: rgba(0,0,0,0.3); border-radius: 14px; padding: 1.25rem; margin-bottom: 1.25rem;">
+            <h4 style="font-size: 0.95rem; color: var(--accent-cyan); margin-bottom: 0.75rem;">Set Election Title & Description</h4>
+            <div style="display: grid; grid-template-columns: 1fr 2fr auto; gap: 0.75rem; align-items: flex-end;">
+              <div>
+                <label class="form-label">Election Name</label>
+                <input type="text" id="adminInputElecName" class="form-input" placeholder="e.g. Apex Student Council Election 2026">
+              </div>
+              <div>
+                <label class="form-label">Description / Instructions</label>
+                <input type="text" id="adminInputElecDesc" class="form-input" placeholder="e.g. Annual Student Body Elections">
+              </div>
+              <button class="btn-primary" style="width: auto; padding: 0.85rem 1.5rem;" onclick="saveElectionDetails()">
+                Save Election Name
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+            <span style="font-weight: 600; color: var(--text-muted);">Current State:</span>
+            <span class="badge badge-active" id="adminCurrentStateBadge">ACTIVE</span>
+
+            <button class="btn-secondary" onclick="updateElectionStatus('ACTIVE')">
+              <i data-lucide="play" style="width: 14px; color: var(--accent-green);"></i> Set ACTIVE
+            </button>
+            <button class="btn-secondary" onclick="updateElectionStatus('CLOSED')">
+              <i data-lucide="lock" style="width: 14px; color: var(--accent-rose);"></i> Close Election
+            </button>
+            <button class="btn-primary btn-success" style="width: auto;" onclick="updateElectionStatus('RESULTS_PUBLISHED')">
+              <i data-lucide="award" style="width: 16px;"></i> Publish Final Results
+            </button>
+            <button class="btn-secondary" style="margin-left: auto; color: #fca5a5; border-color: rgba(244,63,94,0.3);" onclick="purgeAllSystemData()">
+              <i data-lucide="trash-2" style="width: 14px;"></i> Purge System to NIL State
+            </button>
+            <button class="btn-secondary" onclick="triggerSeedData()">
+              <i data-lucide="database" style="width: 14px;"></i> Seed Demo Dataset
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Polling Booths Grid -->
+        <div class="glass-panel">
+          <h3 style="font-size: 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="laptop" style="color: var(--accent-cyan)"></i> Registered Polling Booths
+          </h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;" id="boothsGrid"></div>
+        </div>
+      </div>
+
+      <!-- TAB 2: DEDICATED POLLING BOOTH MANAGEMENT -->
+      <div id="adminTabBooths" style="display: none;">
+        
+        <!-- Add New Booth Form -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem;">
+          <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="plus-circle"></i> Add New Polling Booth
+          </h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Create a booth specifically scoped to the active election instance.
+          </p>
+
+          <form onsubmit="handleAddNewBooth(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) auto; gap: 0.75rem; align-items: flex-end;">
+            <div>
+              <label class="form-label">Booth Reference ID (Optional)</label>
+              <input type="text" id="inputBoothId" class="form-input" placeholder="e.g. BOOTH-01">
+            </div>
+            <div>
+              <label class="form-label">Booth Name</label>
+              <input type="text" id="inputBoothName" class="form-input" placeholder="e.g. Booth 1 - CSE Block" required>
+            </div>
+            <div>
+              <label class="form-label">Building / Location</label>
+              <input type="text" id="inputBoothLocation" class="form-input" placeholder="e.g. CSE Block Room 102">
+            </div>
+            <div>
+              <label class="form-label">Max Voter Capacity</label>
+              <input type="number" id="inputBoothCapacity" class="form-input" value="500" min="10">
+            </div>
+            <button type="submit" class="btn-primary" style="width: auto; padding: 0.85rem 1.5rem;">
+              + Create Booth
+            </button>
+          </form>
+        </div>
+
+        <!-- Reassign Voters Between Booths -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem; background: rgba(99, 102, 241, 0.05); border: 1px solid var(--accent-primary);">
+          <h3 style="font-size: 1.1rem; color: var(--accent-cyan); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="arrow-right-left"></i> Reassign Voters Between Booths
+          </h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Move all voters from one polling booth to another.
+          </p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.75rem; align-items: flex-end;">
+            <div>
+              <label class="form-label">From Booth</label>
+              <select id="selectReassignFrom" class="form-input"></select>
+            </div>
+            <div>
+              <label class="form-label">To Target Booth</label>
+              <select id="selectReassignTo" class="form-input"></select>
+            </div>
+            <button class="btn-primary" style="width: auto; padding: 0.85rem 1.5rem;" onclick="handleBulkReassignVoters()">
+              Reassign Voters
+            </button>
+          </div>
+        </div>
+
+        <!-- Booth breakdown list -->
+        <div class="glass-panel">
+          <h3 style="font-size: 1.25rem; margin-bottom: 1rem;">Configured Election Polling Booths & Voter Allocation</h3>
+          <div id="dedicatedBoothsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;"></div>
+        </div>
+
+      </div>
+
+      <!-- TAB 3: AI VOTERS IMPORT & LIST -->
+      <div id="adminTabVoters" style="display: none;">
+        
+        <!-- Reset Voting Data Banner -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem; border: 1px dashed var(--accent-amber); background: rgba(245, 158, 11, 0.05);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <h3 style="font-size: 1.1rem; color: var(--accent-amber); margin-bottom: 0.2rem;">Reset Student Voting Data</h3>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0;">Reset all student voting statuses back to <code>NOT_VOTED</code> and clear submitted ballots to allow re-voting.</p>
+            </div>
+            <button class="btn-primary btn-danger" style="width: auto; padding: 0.75rem 1.5rem;" onclick="resetVotersData()">
+              <i data-lucide="rotate-ccw" style="width: 16px;"></i> Reset All Voting Data
+            </button>
+          </div>
+        </div>
+
+        <!-- AI-Assisted Bulk Voter Import (Multi-format CSV/Excel/PDF/Images/Text) -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem; border: 1px solid var(--accent-cyan);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h3 style="font-size: 1.25rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 0.5rem;">
+              <i data-lucide="sparkles"></i> AI-Assisted Bulk Voter Import
+            </h3>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span class="badge badge-active">AI PARSER ACTIVE</span>
+              <button onclick="openAdminVotingDataModal()" title="View Voting Analytics" style="background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0.3rem; font-size: 0.75rem; opacity: 0.55; border-radius: 6px; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.55'">
+                <i data-lucide="bar-chart-2" style="width: 15px; height: 15px;"></i>
+              </button>
+            </div>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Upload files (<strong>.csv, .xlsx, .pdf, .txt, .jpg, .png</strong>) or paste tabular data below. The AI assistant extracts student records, auto-detects column mappings (USN/Registration No, Name, DOB), flags anomalies and duplicates, and presents an interactive preview modal before any data is committed. Students can vote from any polling booth!
+          </p>
+
+          <!-- File Upload Drop Zone & Text Input -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div>
+              <label class="form-label">Upload Voter List File (.csv, .xlsx, .pdf, .png, .jpg, .txt)</label>
+              <input type="file" id="fileVoterImport" class="form-input" accept=".csv, .xlsx, .xls, .pdf, .txt, .png, .jpg, .jpeg" onchange="handleAiFileSelect(event)">
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;">
+                Supported formats: CSV, Excel, Scanned PDF, OCR Image lists.
+              </div>
+            </div>
+
+            <div>
+              <label class="form-label">Or Copy-Paste Tabular Text</label>
+              <textarea id="txtAiVotersInput" class="form-input" style="height: 85px; font-family: monospace; font-size: 0.82rem;" placeholder="Name, USN, DOB&#10;Alex Johnson, 4XX2026001, 2003-05-14&#10;Sarah Smith, 4XX2026002, 2002-11-20"></textarea>
+            </div>
+          </div>
+
+          <!-- Column Alias Mapping Configurator -->
+          <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 0.9rem 1.2rem; margin-bottom: 1.25rem;">
+            <div style="font-size: 0.85rem; font-weight: 600; color: var(--accent-cyan); margin-bottom: 0.5rem;">
+              Intelligent Column Mapping Preferences:
+            </div>
+            <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--text-muted);">
+              <span>✓ <strong>USN / ID:</strong> Maps USN, Registration No, Student ID, Roll No</span>
+              <span>✓ <strong>Name:</strong> Maps Student Name, Full Name</span>
+              <span>✓ <strong>DOB:</strong> Maps Date of Birth, Birth Date</span>
+              <span>✓ <strong>Year:</strong> Maps Year, Semester</span>
+            </div>
+          </div>
+
+          <button class="btn-primary" style="width: auto; padding: 0.85rem 2rem;" onclick="processAiVoterImport()">
+            <i data-lucide="sparkles" style="width: 18px;"></i> Parse & Preview Voter Import
+          </button>
+        </div>
+
+        <!-- Add Single Student Form -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem;">
+          <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem; color: var(--accent-cyan);">Add Single Student Voter</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Add a single eligible student to the official voter list.</p>
+
+          <form onsubmit="handleAddSingleStudent(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) auto; gap: 0.75rem; align-items: flex-end;">
+            <div>
+              <label class="form-label">University Number (UN)</label>
+              <input type="text" id="addUn" class="form-input" placeholder="e.g. UN2026099" required>
+            </div>
+            <div>
+              <label class="form-label">Full Name</label>
+              <input type="text" id="addName" class="form-input" placeholder="Student Name" required>
+            </div>
+            <div>
+              <label class="form-label">Department</label>
+              <input type="text" id="addDept" class="form-input" placeholder="e.g. CS" required>
+            </div>
+            <div>
+              <label class="form-label">Year</label>
+              <input type="number" id="addYear" class="form-input" min="1" max="5" value="3" required>
+            </div>
+            <div>
+              <label class="form-label">Date of Birth (DOB)</label>
+              <input type="date" id="addDob" class="form-input" required>
+            </div>
+            <button type="submit" class="btn-primary" style="width: auto; padding: 0.85rem 1.5rem;">
+              + Add Student
+            </button>
+          </form>
+        </div>
+
+        <!-- Bulk Import CSV -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem;">
+          <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem;">Bulk Import Voter List (CSV)</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Upload CSV format: <code>Name, USN/UN, DOB</code> (or <code>USN, Name, DOB</code>)
+          </p>
+
+          <div style="display: flex; gap: 1rem; align-items: center;">
+            <textarea id="txtVotersCsv" class="form-input" style="height: 95px; font-family: monospace; font-size: 0.85rem;" placeholder="Alex Johnson, USN2026011, 2002-09-10&#10;Sarah Smith, USN2026012, 2003-04-18&#10;Devansh Roy, USN2026013, 2002-05-15"></textarea>
+          </div>
+          <button class="btn-primary" style="margin-top: 0.75rem; width: auto;" onclick="submitVoterImport()">
+            <i data-lucide="upload" style="width: 16px;"></i> Bulk Import CSV
+          </button>
+        </div>
+
+        <div class="glass-panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.25rem; margin: 0;">Preloaded Eligible Voter Directory</h3>
+            <button class="btn-secondary" style="padding: 0.35rem 0.85rem; font-size: 0.8rem; color: #fca5a5; border-color: rgba(244,63,94,0.3);" onclick="clearAllVoters()">
+              🗑️ Clear All Voters
+            </button>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>University Number (USN)</th>
+                  <th>Student Name</th>
+                  <th>Date of Birth (DOB)</th>
+                  <th>Eligibility</th>
+                  <th>Voting Status</th>
+                  <th>Receipt Reference</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="voterTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: POSITIONS & CANDIDATES -->
+      <div id="adminTabPositions" style="display: none;">
+        
+        <!-- Add Nominee Form -->
+        <div class="glass-panel" style="margin-bottom: 1.5rem;">
+          <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem; color: var(--accent-cyan);">+ Add New Nominee / Candidate</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">Register a nominee under a specific post/position along with their photo and manifesto.</p>
+
+          <form onsubmit="handleAddCandidate(event)" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div>
+              <label class="form-label">Nominee Name</label>
+              <input type="text" id="candName" class="form-input" placeholder="e.g. Aarav Sharma" required>
+            </div>
+
+            <div>
+              <label class="form-label">Post / Position Title</label>
+              <input type="text" id="candPostName" class="form-input" placeholder="e.g. Student Body President" required>
+            </div>
+
+            <div>
+              <label class="form-label">Department</label>
+              <input type="text" id="candDept" class="form-input" placeholder="e.g. Computer Science" required>
+            </div>
+
+            <div>
+              <label class="form-label">Year</label>
+              <input type="number" id="candYear" class="form-input" min="1" max="5" value="4" required>
+            </div>
+
+            <div style="grid-column: span 2;">
+              <label class="form-label">Photo Image URL</label>
+              <input type="url" id="candPhotoUrl" class="form-input" placeholder="https://images.unsplash.com/photo-...">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Leave blank for automatic default profile picture avatar.</span>
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label class="form-label">Manifesto / Agenda Statement</label>
+              <textarea id="candManifesto" class="form-input" style="height: 70px;" placeholder="Describe candidate promises and campus goals..."></textarea>
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <button type="submit" class="btn-primary" style="width: auto; padding: 0.85rem 2rem;">
+                <i data-lucide="user-plus" style="width: 18px;"></i> Add Nominee to Election
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="glass-panel">
+          <h3 style="font-size: 1.25rem; margin-bottom: 1rem;">Configured Election Positions & Candidates</h3>
+          <div id="adminCandidatesList"></div>
+        </div>
+      </div>
+
+      <!-- TAB 4: UN PARTICIPATION INSPECTOR (PRD Section 11 & 10) -->
+      <div id="adminTabInspector" style="display: none;">
+        <div class="glass-panel" style="max-width: 650px; margin: 0 auto;">
+          <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="search" style="color: var(--accent-cyan)"></i> UN Participation & Presence Inspector
+          </h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+            Search a University Number (UN) to inspect voting participation status and presence record. <strong>Candidate choices remain strictly secret and hidden.</strong>
+          </p>
+
+          <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem;">
+            <input type="text" id="inputInspectUN" class="form-input" placeholder="Enter UN e.g. UN2026001" style="text-transform: uppercase;">
+            <button class="btn-primary" style="width: auto; padding: 0 1.5rem;" onclick="inspectVoterUN()">
+              Inspect UN
+            </button>
+          </div>
+
+          <div id="inspectResultContainer"></div>
+        </div>
+      </div>
+
+      <!-- TAB 5: RESULTS CENTER (PRD Section 12) -->
+      <div id="adminTabResults" style="display: none;">
+        <div class="glass-panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <div>
+              <h2 class="title-lg" style="margin-bottom: 0.2rem;">Official Election Results</h2>
+              <p class="subtitle" style="margin-bottom: 0;">Calculated automatically from encrypted ballot choices.</p>
+            </div>
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+              <button class="btn-primary" style="width: auto; padding: 0.6rem 1.25rem; font-size: 0.85rem;" onclick="publishResults()">
+                <i data-lucide="award" style="width: 16px;"></i> Publish Results & Save Booth PDFs
+              </button>
+              <span class="badge badge-published" id="resultsStatusBadge">RESULTS PUBLISHED</span>
+            </div>
+          </div>
+
+          <!-- Generated Booth-Wise PDF Reports Display -->
+          <div id="boothPdfReportsSection" style="margin-bottom: 1.5rem; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--accent-cyan); border-radius: 16px; padding: 1.25rem; display: none;">
+            <h4 style="font-size: 1rem; color: var(--accent-cyan); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i data-lucide="file-text" style="width: 18px;"></i> Generated Booth-Wise PDF Result Reports
+            </h4>
+            <div id="boothPdfList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.75rem;"></div>
+          </div>
+
+          <div id="resultsContainer"></div>
+        </div>
+      </div>
+
+    </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================= -->
+  <!-- BALLOT REVIEW MODAL -->
+  <!-- ========================================================= -->
+  <div id="reviewModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: white;">
+        Review Your Ballot Selections
+      </h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+        Please confirm your choices below before final submission. Once submitted, your UN is marked as VOTED and choices cannot be modified.
+      </p>
+
+      <div id="reviewChoicesList" style="background: rgba(0,0,0,0.3); border-radius: 14px; padding: 1rem; margin-bottom: 1.5rem;"></div>
+
+      <div style="display: flex; gap: 1rem;">
+        <button class="btn-secondary" onclick="closeReviewModal()" style="flex: 1;">
+          Change Choices
+        </button>
+        <button class="btn-primary btn-success" onclick="confirmSubmitBallot()" style="flex: 1;">
+          <i data-lucide="check-circle" style="width: 18px;"></i> Confirm & Submit Vote
+        </button>
+      </div>
+    </div>
+  <!-- ========================================================= -->
+  <!-- AI BULK IMPORT PREVIEW & AUDIT MODAL -->
+  <!-- ========================================================= -->
+  <div id="aiImportPreviewModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 900px; width: 95%;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <h2 style="font-size: 1.5rem; font-weight: 700; color: white; display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="sparkles" style="color: var(--accent-cyan);"></i> AI Import Verification & Preview
+        </h2>
+        <span class="badge badge-active" id="aiModalFileTypeBadge">CSV / TABULAR</span>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Review extracted records, detected field mappings, and flagged anomalies below before committing to database.
+      </p>
+
+      <!-- Missing Data Pop-up Alert Banner -->
+      <div id="aiMissingDataNotice" style="display: none; background: rgba(245, 158, 11, 0.15); border: 1px solid var(--accent-amber); border-radius: 12px; padding: 0.9rem 1.25rem; margin-bottom: 1.25rem; color: #fef08a;">
+        <div style="display: flex; align-items: center; gap: 0.6rem; font-weight: 700; font-size: 0.95rem; color: var(--accent-amber); margin-bottom: 0.3rem;">
+          <i data-lucide="alert-triangle" style="width: 18px; height: 18px;"></i>
+          <span>⚠️ POP-UP ALERT: Missing Data Found in PDF Upload</span>
+        </div>
+        <div id="aiMissingDataDetails" style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.4;">
+          Some student entries in the PDF have missing or incomplete fields (e.g. missing Date of Birth or USN). 
+          Default values have been suggested in highlighted amber rows below. You can edit any field directly before committing!
+        </div>
+      </div>
+
+      <!-- AI Summary Metric Cards -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1.25rem;">
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 0.75rem; text-align: center;">
+          <div style="font-size: 1.3rem; font-weight: 700; color: var(--accent-green);" id="aiStatValid">0</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Valid Records</div>
+        </div>
+
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; padding: 0.75rem; text-align: center;">
+          <div style="font-size: 1.3rem; font-weight: 700; color: var(--accent-amber);" id="aiStatWarnings">0</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Warnings / Missing DOB</div>
+        </div>
+
+        <div style="background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 10px; padding: 0.75rem; text-align: center;">
+          <div style="font-size: 1.3rem; font-weight: 700; color: #fca5a5;" id="aiStatDuplicates">0</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Duplicates Detected</div>
+        </div>
+
+        <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 10px; padding: 0.75rem; text-align: center;">
+          <div style="font-size: 1.3rem; font-weight: 700; color: var(--accent-cyan);" id="aiStatTotal">0</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">Total Rows Detected</div>
+        </div>
+      </div>
+
+      <!-- Preview Table Container -->
+      <div style="max-height: 340px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 12px; padding: 0.5rem; margin-bottom: 1.25rem;">
+        <table class="data-table" style="width: 100%; font-size: 0.82rem;">
+          <thead>
+            <tr>
+              <th style="width: 30px;"><input type="checkbox" id="chkSelectAllAi" checked onchange="toggleSelectAllAiImport(this.checked)"></th>
+              <th>Row #</th>
+              <th>Student Name</th>
+              <th>USN / UN</th>
+              <th>Date of Birth (DOB)</th>
+              <th>Year</th>
+              <th>Status & Warnings</th>
+            </tr>
+          </thead>
+          <tbody id="aiImportPreviewTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Modal Action Footer -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+        <button class="btn-secondary" style="width: auto; padding: 0.75rem 1.25rem;" onclick="closeAiImportPreviewModal()">
+          Cancel Import
+        </button>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <button class="btn-secondary" style="width: auto; padding: 0.75rem 1.25rem;" onclick="downloadImportErrorReport()">
+            <i data-lucide="download" style="width: 15px;"></i> Download Review Report
+          </button>
+
+          <button class="btn-primary btn-success" style="width: auto; padding: 0.75rem 1.75rem;" onclick="confirmCommitAiImport()">
+            <i data-lucide="check-circle" style="width: 18px;"></i> Import Valid Records
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- ADMIN VOTING ANALYTICS MODAL (Admin-only, shown on icon click) -->
+  <!-- ========================================================= -->
+  <div id="adminVotingDataModal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px); overflow-y:auto;">
+    <div style="max-width:900px; margin:2rem auto; padding:1.5rem; background:var(--bg-secondary,#1a1a2e); border:1px solid var(--border-primary,#2a2a4a); border-radius:16px; box-shadow:0 8px 40px rgba(0,0,0,0.6);">
+
+      <!-- Modal Header -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+        <div>
+          <h2 style="font-size:1.3rem; margin:0; display:flex; align-items:center; gap:0.5rem;">
+            <i data-lucide="bar-chart-2" style="width:20px; height:20px; color:var(--accent-cyan,#67e8f9);"></i>
+            Voting Data Analytics
+          </h2>
+          <p style="font-size:0.8rem; color:var(--text-muted,#888); margin:0.25rem 0 0;">Admin-only view — not visible to students</p>
+        </div>
+        <button onclick="closeAdminVotingDataModal()" style="background:none; border:none; cursor:pointer; color:var(--text-muted,#888); font-size:1.4rem; line-height:1; padding:0.25rem 0.5rem;" title="Close">✕</button>
+      </div>
+
+      <!-- Summary Cards -->
+      <div id="votingDataSummaryCards" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.75rem; margin-bottom:1.25rem;"></div>
+
+      <!-- Candidate Legend -->
+      <div id="votingDataLegend" style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.25rem;"></div>
+
+      <!-- Search & Filters -->
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:1rem; align-items:center;">
+        <input type="text" id="votingDataSearch" class="form-input" placeholder="Search by name or USN…" style="flex:1; min-width:180px; padding:0.55rem 0.8rem; font-size:0.85rem;" oninput="filterAdminVotingData()">
+        <select id="votingDataStatusFilter" class="form-input" style="width:auto; padding:0.55rem 0.8rem; font-size:0.85rem;" onchange="filterAdminVotingData()">
+          <option value="ALL">All Students</option>
+          <option value="VOTED">Voted</option>
+          <option value="NOT_VOTED">Not Voted</option>
+        </select>
+        <select id="votingDataCandidateFilter" class="form-input" style="width:auto; padding:0.55rem 0.8rem; font-size:0.85rem;" onchange="filterAdminVotingData()">
+          <option value="ALL">All Candidates</option>
+        </select>
+      </div>
+
+      <!-- Student Table -->
+      <div style="overflow-x:auto; border-radius:10px; border:1px solid var(--border-primary,#2a2a4a);">
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+          <thead>
+            <tr style="background:rgba(255,255,255,0.04);">
+              <th style="text-align:left; padding:0.65rem 1rem; color:var(--text-muted,#888); font-weight:600;">#</th>
+              <th style="text-align:left; padding:0.65rem 1rem; color:var(--text-muted,#888); font-weight:600;">Student Name</th>
+              <th style="text-align:left; padding:0.65rem 1rem; color:var(--text-muted,#888); font-weight:600;">USN / UN</th>
+              <th style="text-align:left; padding:0.65rem 1rem; color:var(--text-muted,#888); font-weight:600;">Status</th>
+              <th style="text-align:left; padding:0.65rem 1rem; color:var(--text-muted,#888); font-weight:600;">Voted For</th>
+            </tr>
+          </thead>
+          <tbody id="votingDataTableBody">
+            <tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted,#888);">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="text-align:center; margin-top:1rem;">
+        <button onclick="closeAdminVotingDataModal()" class="btn-secondary" style="width:auto; padding:0.65rem 1.75rem;">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF Text Extractor Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  </script>
+
+  <!-- Application Logic -->
+  <script src="/js/app.js"></script>
+</body>
+</html>

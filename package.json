@@ -1,0 +1,20 @@
+{
+  "name": "college-election-system",
+  "version": "1.0.0",
+  "description": "Production-grade, secure multi-laptop College Election System PRD implementation",
+  "main": "server.js",
+  "scripts": {
+    "start": "agy-node server.js",
+    "test": "agy-node tests/test-election.js",
+    "seed": "agy-node server.js --seed-only"
+  },
+  "keywords": [
+    "election",
+    "voting-system",
+    "webcam-presence",
+    "ballot-secrecy",
+    "college"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}

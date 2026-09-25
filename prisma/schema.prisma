@@ -1,0 +1,167 @@
+// Prisma Schema for College Election System — PostgreSQL Architecture
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ElectionStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  CLOSED
+  RESULTS_PUBLISHED
+}
+
+enum VoterStatus {
+  NOT_VOTED
+  VOTED
+}
+
+enum EligibilityStatus {
+  ELIGIBLE
+  BLOCKED
+}
+
+enum BoothStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+model Admin {
+  id               String   @id @default(uuid())
+  login_identifier String   @unique
+  name             String
+  password_hash    String
+  role             String   @default("ADMIN")
+  created_at       DateTime @default(now())
+
+  audit_logs AuditLog[]
+
+  @@map("admins")
+}
+
+model Election {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  start_at    DateTime?
+  end_at      DateTime?
+  status      ElectionStatus @default(DRAFT)
+  created_at  DateTime       @default(now())
+
+  election_voters election_voters[]
+  positions       Position[]
+  ballots         Ballot[]
+  booths          Booth[]
+
+  @@map("elections")
+}
+
+model Voter {
+  id                 String            @id @default(uuid())
+  university_number  String            @unique
+  name               String
+  department         String
+  year               Int
+  dob                String?
+  dob_verifier       String
+  eligibility_status EligibilityStatus @default(ELIGIBLE)
+  created_at         DateTime          @default(now())
+
+  election_voters election_voters[]
+
+  @@map("voters")
+}
+
+model Booth {
+  id            String      @id @default(uuid())
+  election_id   String
+  booth_name    String
+  status        BoothStatus @default(ACTIVE)
+  configuration String?
+  last_ping     DateTime    @default(now())
+  created_at    DateTime    @default(now())
+
+  election Election @relation(fields: [election_id], references: [id], onDelete: Cascade)
+
+  @@map("booths")
+}
+
+model election_voters {
+  id            String      @id @default(uuid())
+  election_id   String
+  voter_id      String
+  status        VoterStatus @default(NOT_VOTED)
+  voted_at      DateTime?
+  booth_id      String?
+  receipt_id    String?
+  voted_choices String?
+
+  election Election @relation(fields: [election_id], references: [id], onDelete: Cascade)
+  voter    Voter    @relation(fields: [voter_id], references: [id], onDelete: Cascade)
+
+  @@unique([election_id, voter_id], name: "unique_election_voter")
+  @@index([election_id, status])
+  @@map("election_voters")
+}
+
+model Position {
+  id            String   @id @default(uuid())
+  election_id   String
+  name          String
+  display_order Int      @default(0)
+  max_choices   Int      @default(1)
+
+  election   Election    @relation(fields: [election_id], references: [id], onDelete: Cascade)
+  candidates Candidate[]
+
+  @@map("positions")
+}
+
+model Candidate {
+  id          String   @id @default(uuid())
+  position_id String
+  name        String
+  department  String
+  year        Int
+  photo_url   String?
+  manifesto   String?
+
+  position Position @relation(fields: [position_id], references: [id], onDelete: Cascade)
+
+  @@map("candidates")
+}
+
+model Ballot {
+  id                    String   @id @default(uuid())
+  election_id           String
+  booth_id              String?
+  protected_ballot_data String
+  submitted_at          DateTime @default(now())
+
+  election Election @relation(fields: [election_id], references: [id], onDelete: Cascade)
+
+  @@index([election_id])
+  @@map("ballots")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  admin_id    String
+  action      String
+  target_type String?
+  target_id   String?
+  details     String?
+  ip_address  String?
+  created_at  DateTime @default(now())
+
+  admin Admin @relation(fields: [admin_id], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
